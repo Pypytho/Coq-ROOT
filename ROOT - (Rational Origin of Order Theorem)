@@ -1,0 +1,132 @@
+Require Import Coq.Logic.Classical_Prop.
+
+(* ========================= *)
+(* --- Tipos Fundamentais --- *)
+(* ========================= *)
+
+Parameter World : Type.
+Parameter A : Type.
+Parameter Root : Type.
+
+(* ========================= *)
+(* --- Predicados Básicos --- *)
+(* ========================= *)
+
+(* Universo é lógico / coerente *)
+Parameter L : World -> Prop.
+
+(* Ato racional *)
+Parameter R : A -> World -> Prop.
+
+(* Ato intencional *)
+Parameter Int : A -> World -> Prop.
+
+(* Ato físico *)
+Parameter Fis : A -> World -> Prop.
+
+(* Ato ocorre no tempo *)
+Parameter Tempo : A -> World -> Prop.
+
+(* Raiz explica um mundo *)
+Parameter Explains : Root -> World -> Prop.
+
+(* ========================= *)
+(* --- Modalidade Necessária *)
+(* ========================= *)
+
+Definition box (P : World -> Prop) : Prop :=
+  forall w : World, P w.
+
+(* ========================= *)
+(* --- Axiomas Fundamentais *)
+(* ========================= *)
+
+(* Lógica é necessária *)
+Axiom Logic_Necessary : box L.
+
+(* Se um ato não é racional, o universo não é lógico *)
+Axiom Rationality_Required :
+  box (fun w => forall a : A, ~ R a w -> ~ L w).
+
+(* Todo ato racional é intencional *)
+Axiom Rational_Implies_Intentional :
+  box (fun w => forall a : A, R a w -> Int a w).
+
+(* Nada físico pode fundamentar racionalidade necessária *)
+Axiom Physical_Not_Rational :
+  box (fun w => forall a : A, Fis a w -> exists w', ~ R a w').
+
+(* Nada temporal pode ser fundamento último *)
+Axiom Temporal_Impossible :
+  box (fun w => forall a : A, Tempo a w -> False).
+
+(* Racionalidade não varia entre mundos *)
+Axiom Rationality_Necessary :
+  forall a : A, forall w w' : World, R a w -> R a w'.
+
+(* ========================= *)
+(* --- Anti-Fato Bruto Forte *)
+(* ========================= *)
+
+(* Um fato necessário não pode ser inexplicado em nenhum mundo *)
+Axiom No_Brute_Necessary :
+  forall (P : World -> Prop),
+    box P ->
+    forall w : World,
+      ~(exists r : Root, Explains r w).
+
+(* ========================= *)
+(* --- Teorema ROOT / TAIR --- *)
+(* ========================= *)
+
+Theorem TAIR :
+  box (fun w =>
+    forall a : A,
+      R a w /\
+      Int a w /\
+      ~ Fis a w /\
+      ~ Tempo a w).
+Proof.
+  unfold box.
+  intros w a.
+
+  (* 1. O ato é racional *)
+  assert (Ra : R a w).
+  {
+    destruct (classic (R a w)) as [H | H]; try exact H.
+    exfalso.
+    apply (Rationality_Required w a) in H.
+    apply H.
+    apply Logic_Necessary.
+  }
+
+  (* 2. Logo, é intencional *)
+  assert (Inta : Int a w).
+  {
+    apply Rational_Implies_Intentional.
+    exact Ra.
+  }
+
+  (* 3. Não pode ser físico *)
+  assert (NotFis : ~ Fis a w).
+  {
+    intro F.
+    apply Physical_Not_Rational in F.
+    destruct F as [w' Hnot].
+    apply Hnot.
+    apply (Rationality_Necessary a w w').
+    exact Ra.
+  }
+
+  (* 4. Não pode ser temporal *)
+  assert (NotTemp : ~ Tempo a w).
+  {
+    intro T.
+    apply (Temporal_Impossible w a).
+    exact T.
+  }
+
+  (* Conclusão *)
+  repeat split; assumption.
+Qed.
+
